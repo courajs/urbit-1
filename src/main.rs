@@ -48,7 +48,7 @@ impl Noun {
 
 // only operations with sub-evaluations
 enum Op {
-  Cons { left: Box<Computation>, right: Box<Computation> },
+  Cons { left: Box<Application>, right: Box<Application> },
   // Two { subject: Computation, formula: Computation },
   // Three { n: Computation },
   // Four { n: Computation },
@@ -66,7 +66,12 @@ struct Computation {
   op: Op,
   reason: String,
   subject: Rc<Noun>,
-  output: Option<Result<Rc<Noun>, String>>,
+}
+
+struct Application {
+    subject: Rc<Noun>,
+    formula: Rc<Noun>,
+    output: Option<Result<Rc<Noun>, String>>,
 }
 
 enum Output {
@@ -82,12 +87,30 @@ fn nock(noun: &Rc<Noun>) -> Result<Rc<Noun>, String> {
         Done(r) => r,
     }
 }
+
 fn apply(subject: &Rc<Noun>, formula: &Rc<Noun>) -> Output {
     match **formula {
         Atom(_) => Done(Err("Attempt to apply an atom as a formula".to_owned())),
         Cell(ref head, ref tail) => {
             match **head {
-                Cell(_,_) => Done(Err("no autocons yet".to_owned())),
+                Cell(ref left, ref right) => {
+                    Continuation(Computation {
+                        reason: "autocons".to_owned(),
+                        subject: subject.clone(),
+                        op: Op::Cons {
+                            left: Box::new(Application {
+                                output: None,
+                                subject: subject.clone(),
+                                formula: left.clone(),
+                            }),
+                            right: Box::new(Application {
+                                output: None,
+                                subject: subject.clone(),
+                                formula: right.clone(),
+                            })
+                        }
+                    })
+                },
                 Atom(instruction) => {
                     match instruction {
                         1 => Done(Ok(tail.clone())),
